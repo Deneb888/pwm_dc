@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"name": "pwm_dc",
+			"path": "."
+		}
+	],
+	"settings": {}
+}
