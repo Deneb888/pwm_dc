@@ -23,6 +23,8 @@ int spd = 200;
 
 bool bCW = true;
 
+int tgt = 2048;
+
 void setspd(int spd);
 
 void setup() {
@@ -169,16 +171,29 @@ void processCommand(String command) {
         pinMode(pinIN2, OUTPUT);
         digitalWrite(pinIN2, HIGH);
         digitalWrite(pinIN1, HIGH);
-    }         
+    }     
+    else if (opcode == "pos") {
+        Serial.println("Executing: pos read");
+        int pos = analogRead(ADC_PIN35); // Returns 0-4095
+        Serial.println(pos);
+    }    
+    else if (opcode == "tgt") {
+        Serial.print("Setting target pos to: ");
+        Serial.println(value);
+
+        if(value > 4096) value = 4096;
+        else if(value < 0) value = 0;
+        tgt = value;
+    }
     else {
         Serial.print("Unknown command: ");
         Serial.println(opcode);
     }
-
 }
 
-void loop() {
+bool old_dir = false;    // cw 
 
+void loop() {
 
   while (Serial.available()) {
         char inChar = (char)Serial.read();
@@ -205,22 +220,60 @@ void loop() {
         Serial.print("\n> "); 
     }
 
+    int adc = analogRead(ADC_PIN34); // Returns 0-4095
+    int pos = analogRead(ADC_PIN35); // Returns 0-4095
 
-  
+    // Serial.println(spd);
 
-  int adc = analogRead(ADC_PIN34); // Returns 0-4095
-  int pos = analogRead(ADC_PIN35); // Returns 0-4095
+    int buttonState = digitalRead(buttonPin);
+    if(buttonState > 0) ledcWrite(pwmChannel, 255); 
+    else ledcWrite(pwmChannel, 1); // button pressed
 
-  // Serial.println(spd);
+    return;
 
-  int buttonState = digitalRead(buttonPin);
+    if(buttonState > 0) {
+        ledcWrite(pwmChannel, 255);
+        return;
+    }
 
-  if(buttonState > 0) ledcWrite(pwmChannel, 255); 
-  else ledcWrite(pwmChannel, 30); // button pressed
+    int err = pos - tgt;
+    bool dir;
 
-  //Serial.println(buttonState);
+    if(err > 15) dir = true;
+    else if(err < -15) dir = false;
+    else {
+        ledcWrite(pwmChannel, 255); 
+        return; // deadband
+    }
 
-  //delay(500);
+    if (!old_dir && dir) {
+        pinMode(pinIN2, OUTPUT);
+        ledcAttachPin(pinIN1, pwmChannel);
+        digitalWrite(pinIN2, HIGH);
+    }
+    else if(old_dir && !dir) {
+        pinMode(pinIN1, OUTPUT);
+        ledcAttachPin(pinIN2, pwmChannel);
+        digitalWrite(pinIN1, HIGH);        
+    }
+
+    int pwm;
+
+    err = abs(err);
+
+    if(err < 50) {
+        pwm = 156 + 2 * err;
+    }
+    else
+        pwm = 256;
+
+    ledcWrite(pwmChannel, 256 - pwm); 
+
+    old_dir = dir;
+
+    Serial.println(pwm);
+
+    //delay(500);
 
 }
 
